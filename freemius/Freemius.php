@@ -252,7 +252,7 @@
 
                     $opts[CURLOPT_RETURNTRANSFER] = true;
                 }
-                else if ('GET' === $pMethod && ! empty($pParams))
+                else if (('GET' === $pMethod || 'DELETE' === $pMethod) && ! empty($pParams))
                 {
                     $pCanonizedPath = $this->AddQueryParams($pCanonizedPath, $pParams);
                 }
