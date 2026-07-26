@@ -1,75 +1,91 @@
 <?php
+
+namespace Freemius\SDK\Exception;
+
+/**
+ * Thrown when an API call returns an exception.
+ */
+class Exception extends \Exception
+{
+    /** @var array */
+    protected array $_result;
+
+    /** @var string */
+    protected string $_type;
+
+    /** @var string */
+    protected string $_code;
+
     /**
-    * Thrown when an API call returns an exception.
-    *
-    */
-    class Freemius_Exception extends Exception
+     * Make a new API exception with the given result.
+     *
+     * @param array $result The result from the API server.
+     */
+    public function __construct(array $result)
     {
-        protected $_result;
-        protected $_type;
-        protected $_code;
-        
-        /**
-        * Make a new API Exception with the given result.
-        *
-        * @param array $result The result from the API server.
-        */
-        public function __construct($result)
-        {
-            $this->_result = $result;
+        $this->_result = $result;
 
-            $code = 0;
-            $message = 'Unknown error, please check GetResult().';
-            $type = '';
-            
-            if (isset($result['error']) && is_array($result['error']))
-            {
-                if (isset($result['error']['code']))
-                    $code =  $result['error']['code'];
-                if (isset($result['error']['message']))
-                    $message =  $result['error']['message'];
-                if (isset($result['error']['type']))
-                    $type = $result['error']['type'];
-            }
+        $code = 0;
+        $message = 'Unknown error, please check GetResult().';
+        $type = '';
 
-            $this->_type = $type;
-            $this->_code = $code;
-            
-            parent::__construct($message, is_numeric($code) ? $code : 0);
+        if (isset($result['error']) && is_array($result['error'])) {
+            if (isset($result['error']['code']))
+                $code = $result['error']['code'];
+            if (isset($result['error']['message']))
+                $message = $result['error']['message'];
+            if (isset($result['error']['type']))
+                $type = $result['error']['type'];
         }
 
-        /**
-        * Return the associated result object returned by the API server.
-        *
-        * @return array The result from the API server
-        */
-        public function getResult()
-        {
-            return $this->_result;
-        }
+        $this->_type = $type;
+        $this->_code = $code;
 
-        public function getStringCode()
-        {
-            return $this->_code;
-        }
-        
-        public function getType()
-        {
-            return $this->_type;
-        }
-
-        /**
-        * To make debugging easier.
-        *
-        * @return string The string representation of the error
-        */
-        public function __toString()
-        {
-            $str = $this->getType() . ': ';
-
-            if ($this->code != 0)
-                $str .= $this->getStringCode() . ': ';
-
-            return $str . $this->getMessage();
-        }
+        parent::__construct($message, is_numeric($code) ? $code : 0);
     }
+
+    /**
+     * Return the associated result object returned by the API server.
+     *
+     * @return array The result from the API server.
+     */
+    public function getResult(): array
+    {
+        return $this->_result;
+    }
+
+    /**
+     * Return the API error code as a string.
+     *
+     * @return string The API error code.
+     */
+    public function getStringCode(): string
+    {
+        return $this->_code;
+    }
+
+    /**
+     * Return the API error type.
+     *
+     * @return string The API error type.
+     */
+    public function getType(): string
+    {
+        return $this->_type;
+    }
+
+    /**
+     * To make debugging easier.
+     *
+     * @return string The string representation of the error.
+     */
+    public function __toString(): string
+    {
+        $str = $this->getType() . ': ';
+
+        if ($this->code != 0)
+            $str .= $this->getStringCode() . ': ';
+
+        return $str . $this->getMessage();
+    }
+}

@@ -5,27 +5,29 @@
  * 1. Install dependencies via Composer:
  *    composer install
  *
- * 2. Copy the `credentials.example.php` file to `credentials.php` and fill in your actual credentials:
- *    cp tests/credentials.example.php tests/credentials.php
- *    // Then edit `tests/credentials.php` to include your actual API credentials.
+ * 2. Copy `.env.example` to `.env` and fill in your actual credentials:
+ *    cp .env.example .env
+ *    // Alternatively, provide the same variables through the environment (for example in CI).
  *
  * 3. Run the tests using PHPUnit:
  *    vendor/bin/phpunit
  */
+
+use Freemius\SDK\Freemius;
 use PHPUnit\Framework\TestCase;
 
 class GetLicenseDataTest extends TestCase
 {
     public function testLicenseData()
     {
-        $api = new Freemius_Api(
-            FS__API_SCOPE,
-            FS__API_ENTITY_ID,
-            FS__API_PUBLIC_KEY,
-            FS__API_SECRET_KEY
+        $api = new Freemius(
+            FS_API__SCOPE,
+            FS_API__ENTITY_ID,
+            FS_API__PUBLIC_KEY,
+            FS_API__SECRET_KEY
         );
 
-        $license_key = FS__TEST_VALID_LICENSE_KEY;
+        $license_key = FS_TEST__VALID_LICENSE_KEY;
 
         $result = $api->Api("/licenses.json", "GET", array(
             'search' => ($license_key),

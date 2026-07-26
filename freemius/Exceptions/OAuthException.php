@@ -1,8 +1,19 @@
 <?php
-    class Freemius_OAuthException extends Freemius_Exception
+
+namespace Freemius\SDK\Exception;
+
+/**
+ * Thrown when an OAuth API call returns an exception.
+ */
+class OAuthException extends Exception
+{
+    /**
+     * Make a new OAuth exception with the given result.
+     *
+     * @param array $pResult The result from the API server.
+     */
+    public function __construct(array $pResult)
     {
-        public function __construct($pResult)
-        {
-            parent::__construct($pResult);
-        }
+        parent::__construct($pResult);
     }
+}
