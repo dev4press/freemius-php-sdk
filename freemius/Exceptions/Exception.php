@@ -49,7 +49,7 @@ class Exception extends \Exception
      *
      * @return array The result from the API server.
      */
-    public function getResult(): array
+    public function GetResult(): array
     {
         return $this->_result;
     }
@@ -59,7 +59,7 @@ class Exception extends \Exception
      *
      * @return string The API error code.
      */
-    public function getStringCode(): string
+    public function GetStringCode(): string
     {
         return $this->_code;
     }
@@ -69,7 +69,7 @@ class Exception extends \Exception
      *
      * @return string The API error type.
      */
-    public function getType(): string
+    public function GetType(): string
     {
         return $this->_type;
     }
@@ -81,10 +81,10 @@ class Exception extends \Exception
      */
     public function __toString(): string
     {
-        $str = $this->getType() . ': ';
+        $str = $this->GetType() . ': ';
 
         if ($this->code != 0)
-            $str .= $this->getStringCode() . ': ';
+            $str .= $this->GetStringCode() . ': ';
 
         return $str . $this->getMessage();
     }

@@ -2,7 +2,16 @@
 
 namespace Freemius\SDK;
 
+use Composer\CaBundle\CaBundle;
+use Freemius\SDK\Exception\EmptyArgumentException;
 use Freemius\SDK\Exception\Exception as FreemiusException;
+use Freemius\SDK\Exception\UnknownFileTypeException;
+use GuzzleHttp\Client;
+use GuzzleHttp\ClientInterface;
+use GuzzleHttp\Exception\ConnectException;
+use GuzzleHttp\Exception\TransferException;
+use GuzzleHttp\Psr7\MultipartStream;
+use Psr\Http\Message\StreamInterface;
 
 /**
  * Copyright 2014 Freemius, Inc.
@@ -27,14 +36,11 @@ if (!defined('FS_API__VERSION')) {
 if (!function_exists('json_decode'))
     throw new \Exception('Freemius needs the JSON PHP extension.');
 
-if (!function_exists('curl_init'))
-    throw new \Exception('Freemius needs the CURL PHP extension.');
+if (!defined('FS_SDK__USER_AGENT'))
+    define('FS_SDK__USER_AGENT', 'fs-php-' . Freemius::VERSION);
 
-define('FS_SDK__USER_AGENT', 'fs-php-' . Freemius::VERSION);
-
-$curl_version = curl_version();
-
-define('FS_API__PROTOCOL', version_compare($curl_version['version'], '7.37', '>=') ? 'https' : 'http');
+if (!defined('FS_API__PROTOCOL'))
+    define('FS_API__PROTOCOL', 'https');
 
 if (!defined('FS_API__ADDRESS'))
     define('FS_API__ADDRESS', FS_API__PROTOCOL . '://api.freemius.com');
@@ -43,8 +49,15 @@ if (!defined('FS_API__SANDBOX_ADDRESS'))
 
 class Freemius
 {
+    private static $INSTANCES = array();
     const VERSION = '2.0.0';
     const FORMAT = 'json';
+    const SCOPE_DEVELOPER = 'developer';
+    const SCOPE_STORE = 'store';
+    const SCOPE_PRODUCT = 'plugin';
+    const SCOPE_APP = 'app';
+    const SCOPE_USER = 'user';
+    const SCOPE_INSTALL = 'install';
 
     /** @var int */
     protected int $_id;
@@ -62,16 +75,19 @@ class Freemius
     protected bool $_sandbox;
 
     /**
-     * Default options for curl.
+     * Default options for Guzzle requests.
      *
-     * @var array<int, mixed>
+     * @var array<string, mixed>
      */
-    public static array $CURL_OPTS = array(
-        CURLOPT_CONNECTTIMEOUT => 10,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 60,
-        CURLOPT_USERAGENT => FS_SDK__USER_AGENT,
-        CURLOPT_HTTPHEADER => array()
+    protected static array $HTTP_OPTIONS = array(
+        'connect_timeout' => 10,
+        'timeout' => 60,
+        'http_errors' => false,
+        'allow_redirects' => false,
+        'expect' => false,
+        'headers' => array(
+            'User-Agent' => FS_SDK__USER_AGENT,
+        ),
     );
 
     /**
@@ -80,21 +96,85 @@ class Freemius
     private static int $_clock_diff = 0;
 
     /**
+     * @var ClientInterface|null
+     */
+    protected ?ClientInterface $_http_client = null;
+
+    /**
      * @param string $pScope 'app', 'developer', 'user' or 'install'.
      * @param number $pID Element's id.
      * @param string $pPublic Public key.
-     * @param string $pSecret Element's secret key.
+     * @param string|null $pSecret Element's secret key. If secret key not provided, user public key encryption.
      * @param bool $pSandbox Whether or not to run API in sandbox mode.
-     *
-     * @return void
      */
-    public function Init(string $pScope, int $pID, string $pPublic, string $pSecret, bool $pSandbox = false): void
+    public function __construct(string $pScope, int $pID, string $pPublic, string $pSecret = null, bool $pSandbox = false)
     {
         $this->_id = $pID;
         $this->_public = $pPublic;
-        $this->_secret = $pSecret;
+        $this->_secret = $pSecret ?? $pPublic;
         $this->_scope = $pScope;
         $this->_sandbox = $pSandbox;
+    }
+
+    public static function Instance(string $pScope, int $pID, string $pPublic = null, string $pSecret = null, bool $pSandbox = false): self
+    {
+        if (isset(self::$INSTANCES[$pScope][$pID])) {
+            return self::$INSTANCES[$pScope][$pID];
+        }
+
+        if (is_null($pPublic)) {
+            throw new EmptyArgumentException(array(
+                'error' => array(
+                    'message' => 'Public key is required and can\'t be empty or null.',
+                    'type' => 'InvalidPublicKey',
+                ),
+            ));
+        }
+
+        if (is_null($pSecret) && $pScope !== self::SCOPE_USER) {
+            throw new EmptyArgumentException(array(
+                'error' => array(
+                    'message' => 'Secret key is required and can\'t be empty or null.',
+                    'type' => 'InvalidSecretKey',
+                ),
+            ));
+        }
+
+        if (!isset(self::$INSTANCES[$pScope][$pID])) {
+            self::$INSTANCES[$pScope][$pID] = new self($pScope, $pID, $pPublic, $pSecret, $pSandbox);
+        }
+
+        return self::$INSTANCES[$pScope][$pID];
+    }
+
+    public static function Developer(int $pID, string $pPublic = null, string $pSecret = null, bool $pSandbox = false): self
+    {
+        return self::Instance(self::SCOPE_DEVELOPER, $pID, $pPublic, $pSecret, $pSandbox);
+    }
+
+    public static function Store(int $pID, string $pPublic = null, string $pSecret = null, bool $pSandbox = false): self
+    {
+        return self::Instance(self::SCOPE_STORE, $pID, $pPublic, $pSecret, $pSandbox);
+    }
+
+    public static function Product(int $pID, string $pPublic = null, string $pSecret = null, bool $pSandbox = false): self
+    {
+        return self::Instance(self::SCOPE_PRODUCT, $pID, $pPublic, $pSecret, $pSandbox);
+    }
+
+    public static function User(int $pID, string $pPublic = null, bool $pSandbox = false): self
+    {
+        return self::Instance(self::SCOPE_USER, $pID, $pPublic, null, $pSandbox);
+    }
+
+    public static function Install(int $pID, string $pPublic = null, string $pSecret = null, bool $pSandbox = false): self
+    {
+        return self::Instance(self::SCOPE_INSTALL, $pID, $pPublic, $pSecret, $pSandbox);
+    }
+
+    public static function App(int $pID, string $pPublic = null, string $pSecret = null, bool $pSandbox = false): self
+    {
+        return self::Instance(self::SCOPE_APP, $pID, $pPublic, $pSecret, $pSandbox);
     }
 
     /**
@@ -133,22 +213,22 @@ class Freemius
             $pPath = substr($pPath, 0, strlen($pPath) - $format_length);
 
         switch ($this->_scope) {
-            case 'app':
+            case self::SCOPE_APP:
                 $base = '/apps/' . $this->_id;
                 break;
-            case 'developer':
+            case self::SCOPE_DEVELOPER:
                 $base = '/developers/' . $this->_id;
                 break;
-            case 'store':
+            case self::SCOPE_STORE:
                 $base = '/stores/' . $this->_id;
                 break;
-            case 'user':
+            case self::SCOPE_USER:
                 $base = '/users/' . $this->_id;
                 break;
-            case 'plugin':
+            case self::SCOPE_PRODUCT:
                 $base = '/plugins/' . $this->_id;
                 break;
-            case 'install':
+            case self::SCOPE_INSTALL:
                 $base = '/installs/' . $this->_id;
                 break;
             default:
@@ -175,7 +255,7 @@ class Freemius
      *
      * @return string|object Decoded API response or the raw response body.
      */
-    private function _Api(string $pPath, string $pMethod = 'GET', array $pParams = array(), array $pFileParams = array())
+    private function ApiRequest(string $pPath, string $pMethod = 'GET', array $pParams = array(), array $pFileParams = array())
     {
         $pMethod = strtoupper($pMethod);
 
@@ -183,7 +263,7 @@ class Freemius
             $result = $this->MakeRequest($pPath, $pMethod, $pParams, $pFileParams);
         } catch (FreemiusException $e) {
             // Map to error object.
-            $result = json_encode($e->getResult());
+            $result = json_encode($e->GetResult());
         } catch (\Exception $e) {
             // Map to error object.
             $result = json_encode(array(
@@ -206,7 +286,7 @@ class Freemius
      */
     public function Test(): bool
     {
-        $pong = $this->_Api('/v' . FS_API__VERSION . '/ping.json');
+        $pong = $this->ApiRequest('/v' . FS_API__VERSION . '/ping.json');
 
         return (is_object($pong) && isset($pong->api) && 'pong' === $pong->api);
     }
@@ -220,7 +300,8 @@ class Freemius
     public function FindClockDiff(): int
     {
         $time = time();
-        $pong = $this->_Api('/v' . FS_API__VERSION . '/ping.json');
+        $pong = $this->ApiRequest('/v' . FS_API__VERSION . '/ping.json');
+
         return ($time - strtotime($pong->timestamp));
     }
 
@@ -232,7 +313,7 @@ class Freemius
      *
      * @return string Path with query parameters.
      */
-    protected function AddQueryParams(string $pPath, array $pParams): string
+    private function AddQueryParams(string $pPath, array $pParams): string
     {
         $query_string = http_build_query($pParams);
 
@@ -251,7 +332,7 @@ class Freemius
      */
     public function Api(string $pPath, string $pMethod = 'GET', array $pParams = array(), array $pFileParams = array())
     {
-        return $this->_Api($this->CanonizePath($pPath), $pMethod, $pParams, $pFileParams);
+        return $this->ApiRequest($this->CanonizePath($pPath), $pMethod, $pParams, $pFileParams);
     }
 
     /**
@@ -264,7 +345,7 @@ class Freemius
      * @param string $input base64UrlEncoded string
      * @return string
      */
-    protected static function Base64UrlDecode(string $input): string
+    private static function Base64UrlDecode(string $input): string
     {
         return base64_decode(strtr($input, '-_', '+/'));
     }
@@ -278,29 +359,12 @@ class Freemius
      * @param string $input string
      * @return string base64Url encoded string
      */
-    protected static function Base64UrlEncode(string $input): string
+    private static function Base64UrlEncode(string $input): string
     {
         $str = strtr(base64_encode($input), '+/', '-_');
         $str = str_replace('=', '', $str);
 
         return $str;
-    }
-
-
-    /**
-     * @param string $pScope 'app', 'developer', 'user' or 'install'.
-     * @param number $pID Element's id.
-     * @param string $pPublic Public key.
-     * @param string|bool $pSecret Element's secret key.
-     * @param bool $pSandbox Whether or not to run API in sandbox mode.
-     */
-    public function __construct(string $pScope, int $pID, string $pPublic, $pSecret = false, bool $pSandbox = false)
-    {
-        // If secret key not provided, user public key encryption.
-        if (is_bool($pSecret))
-            $pSecret = $pPublic;
-
-        $this->Init($pScope, $pID, $pPublic, $pSecret, $pSandbox);
     }
 
     /**
@@ -314,7 +378,6 @@ class Freemius
     {
         return ($this->_sandbox ? FS_API__SANDBOX_ADDRESS : FS_API__ADDRESS) . $pCanonizedPath;
     }
-
 
     /**
      * Set clock diff for all API calls.
@@ -335,14 +398,14 @@ class Freemius
      *
      * @param string $pResourceUrl Resource URL to sign.
      * @param string $pMethod HTTP method.
-     * @param array $opts cURL options, passed by reference.
+     * @param array $headers HTTP headers, passed by reference.
      * @param string $pJsonEncodedParams JSON-encoded request parameters.
      * @param string $pContentType Request content type.
      */
-    protected function SignRequest(
+    private function SignRequest(
         string $pResourceUrl,
         string $pMethod,
-        array  &$opts,
+        array  &$headers,
         string $pJsonEncodedParams,
         string $pContentType
     ): void
@@ -354,13 +417,11 @@ class Freemius
             $pContentType
         );
 
-        $opts[CURLOPT_HTTPHEADER][] = ('Date: ' . $auth['date']);
-
-        // Add authorization header.
-        $opts[CURLOPT_HTTPHEADER][] = ('Authorization: ' . $auth['authorization']);
+        $headers['Date'] = $auth['date'];
+        $headers['Authorization'] = $auth['authorization'];
 
         if (!empty($auth['content_md5']))
-            $opts[CURLOPT_HTTPHEADER][] = ('Content-MD5: ' . $auth['content_md5']);
+            $headers['Content-MD5'] = $auth['content_md5'];
     }
 
     /**
@@ -440,14 +501,13 @@ class Freemius
 
     /**
      * Makes an HTTP request. This method can be overridden by subclasses if
-     * developers want to do fancier things or use something other than curl to
-     * make the request.
+     * developers want to do fancier things or use something other than Guzzle
+     * to make the request.
      *
      * @param string $pCanonizedPath The URL to make the request to.
      * @param string $pMethod HTTP method.
      * @param array $pParams The parameters to use for the POST body.
      * @param array $pFileParams File parameters.
-     * @param resource|\CurlHandle|null $ch Initialized cURL handle.
      *
      * @return string The response body.
      * @throws FreemiusException
@@ -456,158 +516,99 @@ class Freemius
         string $pCanonizedPath,
         string $pMethod = 'GET',
         array  $pParams = array(),
-        array  $pFileParams = array(),
-               $ch = null
+        array  $pFileParams = array()
     ): string
     {
-        if (!$ch)
-            $ch = curl_init();
-
-        $opts = self::$CURL_OPTS;
-
-        if (!is_array($opts[CURLOPT_HTTPHEADER]))
-            $opts[CURLOPT_HTTPHEADER] = array();
-
+        $headers = self::$HTTP_OPTIONS['headers'];
         $content_type = 'application/json';
         $json_encoded_params = empty($pParams) ?
             '' :
             json_encode($pParams);
-
-        $overidden_method = $pMethod;
+        $body = null;
+        $overridden_method = $pMethod;
 
         if ('POST' === $pMethod || 'PUT' === $pMethod) {
             if (!empty($pFileParams)) {
-                $data = empty($json_encoded_params) ?
-                    '' :
-                    array('data' => $json_encoded_params);
-
-                $json_encoded_params = '';
-
                 $boundary = ('----' . uniqid());
-                $post_fields = $this->GenerateMultipartBody($data, $pFileParams, $boundary);
+                $multipart_elements = array();
+
+                if (!empty($json_encoded_params)) {
+                    $multipart_elements[] = array(
+                        'name' => 'data',
+                        'contents' => $json_encoded_params,
+                    );
+                }
+
+                foreach ($pFileParams as $name => $file_path) {
+                    $file = fopen($file_path, 'rb');
+                    if (false === $file)
+                        throw new \RuntimeException('Unable to read upload file: ' . $file_path);
+
+                    $multipart_elements[] = array(
+                        'name' => $name,
+                        'contents' => $file,
+                        'filename' => basename($file_path),
+                        'headers' => array(
+                            'Content-Type' => $this->GetMimeContentType($file_path),
+                        ),
+                    );
+                }
+
+                $body = new MultipartStream($multipart_elements, $boundary);
                 $content_type = "multipart/form-data; boundary={$boundary}";
+                $json_encoded_params = '';
 
                 if ('PUT' === $pMethod) {
                     $query = parse_url($pCanonizedPath, PHP_URL_QUERY);
                     $pCanonizedPath .= (is_string($query) ? '&' : '?') . 'method=PUT';
 
-                    $overidden_method = $pMethod;
+                    $overridden_method = $pMethod;
                     $pMethod = 'POST';
                 }
             } else {
-                $post_fields = $json_encoded_params;
+                $body = $json_encoded_params;
             }
-
-            if (is_array($pParams) && 0 < count($pParams)) {
-                $opts[CURLOPT_POST] = count($pParams);
-                $opts[CURLOPT_POSTFIELDS] = $post_fields;
-            }
-
-            $opts[CURLOPT_RETURNTRANSFER] = true;
         } else if (('GET' === $pMethod || 'DELETE' === $pMethod) && !empty($pParams)) {
             $pCanonizedPath = $this->AddQueryParams($pCanonizedPath, $pParams);
         }
 
-        $opts[CURLOPT_HTTPHEADER][] = "Content-Type: $content_type";
+        $headers['Content-Type'] = $content_type;
 
         $request_url = $this->GetUrl($pCanonizedPath);
-
-        $opts[CURLOPT_URL] = $request_url;
-        $opts[CURLOPT_CUSTOMREQUEST] = $pMethod;
-
         $resource = explode('?', $pCanonizedPath);
-        $this->SignRequest($resource[0], $overidden_method, $opts, $json_encoded_params, $content_type);
+        $this->SignRequest($resource[0], $overridden_method, $headers, $json_encoded_params, $content_type);
 
-        // disable the 'Expect: 100-continue' behaviour. This causes CURL to wait
-        // for 2 seconds if the server does not support this header.
-        $opts[CURLOPT_HTTPHEADER][] = 'Expect:';
+        $options = self::$HTTP_OPTIONS;
+        $options['headers'] = $headers;
+        if (null !== $body)
+            $options['body'] = $body;
 
-        if ('https' === substr(strtolower($request_url), 0, 5)) {
-            $opts[CURLOPT_SSL_VERIFYHOST] = false;
-            $opts[CURLOPT_SSL_VERIFYPEER] = false;
-        }
+        try {
+            $response = $this->GetHttpClient()->request($pMethod, $request_url, $options);
+        } catch (ConnectException $e) {
+            $options['force_ip_resolve'] = 'v4';
 
-        curl_setopt_array($ch, $opts);
-        $result = curl_exec($ch);
+            if (isset($options['body']) && $options['body'] instanceof StreamInterface && $options['body']->isSeekable())
+                $options['body']->rewind();
 
-        /*if (curl_errno($ch) == 60) // CURLE_SSL_CACERT
-        {
-            self::errorLog('Invalid or no certificate authority found, using bundled information');
-            curl_setopt($ch, CURLOPT_CAINFO,
-            dirname(__FILE__) . '/fb_ca_chain_bundle.crt');
-            $result = curl_exec($ch);
-        }*/
-
-        // With dual stacked DNS responses, it's possible for a server to
-        // have IPv6 enabled but not have IPv6 connectivity.  If this is
-        // the case, curl will try IPv4 first and if that fails, then it will
-        // fall back to IPv6 and the error EHOSTUNREACH is returned by the
-        // operating system.
-        if (false === $result && empty($opts[CURLOPT_IPRESOLVE])) {
-            $matches = array();
-            $regex = '/Failed to connect to ([^:].*): Network is unreachable/';
-            if (preg_match($regex, curl_error($ch), $matches)) {
-                if (strlen(@inet_pton($matches[1])) === 16) {
-                    self::errorLog('Invalid IPv6 configuration on server, Please disable or get native IPv6 on your server.');
-                    self::$CURL_OPTS[CURLOPT_IPRESOLVE] = CURL_IPRESOLVE_V4;
-                    curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-                    $result = curl_exec($ch);
-                }
+            try {
+                $response = $this->GetHttpClient()->request($pMethod, $request_url, $options);
+            } catch (TransferException $retry_exception) {
+                $e = $retry_exception;
             }
+        } catch (TransferException $e) {
         }
 
-        if ($result === false) {
-            $e = new FreemiusException(array(
-                'error' => array(
-                    'code' => curl_errno($ch),
-                    'message' => curl_error($ch),
-                    'type' => 'CurlException',
-                ),
-            ));
+        if (isset($response))
+            return (string)$response->getBody();
 
-            curl_close($ch);
-            throw $e;
-        }
-
-        curl_close($ch);
-
-        return $result;
-    }
-
-    /**
-     * @param array $pParams
-     * @param array $pFileParams
-     * @param string $pBoundary
-     *
-     * @return string
-     */
-    private function GenerateMultipartBody(array $pParams, array $pFileParams, string $pBoundary): string
-    {
-        $body = '';
-
-        if (!empty($pParams)) {
-            foreach ($pParams as $name => $value) {
-                $body = ('--' . $pBoundary . PHP_EOL) .
-                    ("Content-Disposition: form-data; name=\"{$name}\"" . PHP_EOL) .
-                    PHP_EOL .
-                    ($value . PHP_EOL);
-            }
-        }
-
-        foreach ($pFileParams as $name => $file_path) {
-            $filename = basename($file_path);
-
-            $body .=
-                ('--' . $pBoundary . PHP_EOL) .
-                ("Content-Disposition: form-data; name=\"{$name}\"; filename=\"{$filename}\"" . PHP_EOL) .
-                ('Content-Type: ' . $this->GetMimeContentType($file_path) . PHP_EOL) .
-                PHP_EOL .
-                (file_get_contents($file_path) . PHP_EOL);
-        }
-
-        $body .= ('--' . $pBoundary . '--');
-
-        return $body;
+        throw new FreemiusException(array(
+            'error' => array(
+                'code' => $e->getCode(),
+                'message' => $e->getMessage(),
+                'type' => 'TransportException',
+            ),
+        ));
     }
 
     /**
@@ -615,7 +616,7 @@ class Freemius
      *
      * @return string
      *
-     * @throws \Exception
+     * @throws UnknownFileTypeException
      */
     private function GetMimeContentType(string $pFilename): string
     {
@@ -633,8 +634,41 @@ class Freemius
         $ext = explode('.', $pFilename)[1];
 
         if (!isset($mime_types[$ext]))
-            throw new \Exception('Unknown file type');
+            throw new UnknownFileTypeException(array(
+                'error' => array(
+                    'message' => 'Unknown file type',
+                    'type' => 'UnknownFileType',
+                ),
+            ));
 
         return $mime_types[$ext];
+    }
+
+    /**
+     * Create the internal HTTP client.
+     *
+     * Creates the configured Guzzle client without changing the public
+     * constructor.
+     *
+     * @return ClientInterface
+     */
+    private function CreateHttpClient(): ClientInterface
+    {
+        return new Client(array(
+            'verify' => CaBundle::getSystemCaRootBundlePath(),
+        ));
+    }
+
+    /**
+     * Get the lazily-created internal HTTP client.
+     *
+     * @return ClientInterface
+     */
+    private function GetHttpClient(): ClientInterface
+    {
+        if (null === $this->_http_client)
+            $this->_http_client = $this->CreateHttpClient();
+
+        return $this->_http_client;
     }
 }

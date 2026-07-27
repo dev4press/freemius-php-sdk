@@ -19,10 +19,15 @@ $get_environment_value = static function ($name) use ($env) {
 };
 
 $required_values = array(
-    'FS_API__SCOPE',
-    'FS_API__ENTITY_ID',
-    'FS_API__PUBLIC_KEY',
-    'FS_API__SECRET_KEY',
+    'FS_API__DEVELOPER_ID',
+    'FS_API__DEVELOPER_PUBLIC_KEY',
+    'FS_API__DEVELOPER_SECRET_KEY',
+    'FS_API__STORE_ID',
+    'FS_API__STORE_PUBLIC_KEY',
+    'FS_API__STORE_SECRET_KEY',
+    'FS_API__PRODUCT_ID',
+    'FS_API__PRODUCT_PUBLIC_KEY',
+    'FS_API__PRODUCT_SECRET_KEY',
     'FS_TEST__VALID_LICENSE_KEY',
 );
 
@@ -45,8 +50,13 @@ if (null !== $api_address && '' !== $api_address) {
     define('FS_API__ADDRESS', $api_address);
 }
 
-define('FS_API__SCOPE', $get_environment_value('FS_API__SCOPE'));
-define('FS_API__ENTITY_ID', (int)$get_environment_value('FS_API__ENTITY_ID'));
-define('FS_API__PUBLIC_KEY', $get_environment_value('FS_API__PUBLIC_KEY'));
-define('FS_API__SECRET_KEY', $get_environment_value('FS_API__SECRET_KEY'));
+define('FS_API__DEVELOPER_ID', (int)$get_environment_value('FS_API__DEVELOPER_ID'));
+define('FS_API__DEVELOPER_PUBLIC_KEY', $get_environment_value('FS_API__DEVELOPER_PUBLIC_KEY'));
+define('FS_API__DEVELOPER_SECRET_KEY', $get_environment_value('FS_API__DEVELOPER_SECRET_KEY'));
+define('FS_API__STORE_ID', (int)$get_environment_value('FS_API__STORE_ID'));
+define('FS_API__STORE_PUBLIC_KEY', $get_environment_value('FS_API__STORE_PUBLIC_KEY'));
+define('FS_API__STORE_SECRET_KEY', $get_environment_value('FS_API__STORE_SECRET_KEY'));
+define('FS_API__PRODUCT_ID', (int)$get_environment_value('FS_API__PRODUCT_ID'));
+define('FS_API__PRODUCT_PUBLIC_KEY', $get_environment_value('FS_API__PRODUCT_PUBLIC_KEY'));
+define('FS_API__PRODUCT_SECRET_KEY', $get_environment_value('FS_API__PRODUCT_SECRET_KEY'));
 define('FS_TEST__VALID_LICENSE_KEY', $get_environment_value('FS_TEST__VALID_LICENSE_KEY'));

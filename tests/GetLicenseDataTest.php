@@ -14,18 +14,49 @@
  */
 
 use Freemius\SDK\Freemius;
+use Freemius\SDK\Legacy\Freemius as LegacyFreemius;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * Verifies license data retrieval with both SDK implementations.
+ */
 class GetLicenseDataTest extends TestCase
 {
-    public function testLicenseData()
+    /**
+     * Verifies license data retrieval via Product scope through the legacy cURL implementation.
+     *
+     * @test
+     * @return void
+     */
+    public function TestProductScopeLicenseDataLegacy()
     {
-        $api = new Freemius(
-            FS_API__SCOPE,
-            FS_API__ENTITY_ID,
-            FS_API__PUBLIC_KEY,
-            FS_API__SECRET_KEY
+        $legacyApi = new LegacyFreemius(
+            'plugin',
+            FS_API__PRODUCT_ID,
+            FS_API__PRODUCT_PUBLIC_KEY,
+            FS_API__PRODUCT_SECRET_KEY
         );
+
+        $license_key = FS_TEST__VALID_LICENSE_KEY;
+
+        $result = $legacyApi->Api("/licenses.json", "GET", array(
+            'search' => ($license_key),
+        ));
+
+        $this->assertIsArray($result->licenses, 'Licenses should be an array');
+        $this->assertCount(1, $result->licenses, 'There should be exactly one license');
+        $this->assertEquals($license_key, $result->licenses[0]->secret_key, 'The secret key should match the provided license key');
+    }
+
+    /**
+     * Verifies license data retrieval via Product scope through the active Guzzle implementation.
+     *
+     * @test
+     * @return void
+     */
+    public function TestProductScopeLicenseData()
+    {
+        $api = Freemius::Product(FS_API__PRODUCT_ID, FS_API__PRODUCT_PUBLIC_KEY, FS_API__PRODUCT_SECRET_KEY);
 
         $license_key = FS_TEST__VALID_LICENSE_KEY;
 

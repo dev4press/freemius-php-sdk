@@ -21,10 +21,9 @@ $get_environment_value = static function ($name) use ($env) {
 };
 
 $required_values = array(
-    'FS_API__SCOPE',
-    'FS_API__ENTITY_ID',
-    'FS_API__PUBLIC_KEY',
-    'FS_API__SECRET_KEY',
+    'FS_API__PRODUCT_ID',
+    'FS_API__PRODUCT_PUBLIC_KEY',
+    'FS_API__PRODUCT_SECRET_KEY',
     'FS_DEPLOYMENT__PLUGIN_ID',
     'FS_DEPLOYMENT__PLUGIN_ZIP',
     'FS_DEPLOYMENT__DOWNLOAD_PATH',
@@ -49,13 +48,12 @@ if (null !== $api_address && '' !== $api_address) {
     define('FS_API__ADDRESS', $api_address);
 }
 
-define('FS_API__SCOPE', $get_environment_value('FS_API__SCOPE'));
-define('FS_API__ENTITY_ID', (int) $get_environment_value('FS_API__ENTITY_ID'));
-define('FS_API__PUBLIC_KEY', $get_environment_value('FS_API__PUBLIC_KEY'));
-define('FS_API__SECRET_KEY', $get_environment_value('FS_API__SECRET_KEY'));
+define('FS_API__PRODUCT_ID', (int)$get_environment_value('FS_API__PRODUCT_ID'));
+define('FS_API__PRODUCT_PUBLIC_KEY', $get_environment_value('FS_API__PRODUCT_PUBLIC_KEY'));
+define('FS_API__PRODUCT_SECRET_KEY', $get_environment_value('FS_API__PRODUCT_SECRET_KEY'));
 
 // Init SDK.
-$api = new Freemius(FS_API__SCOPE, FS_API__ENTITY_ID, FS_API__PUBLIC_KEY, FS_API__SECRET_KEY);
+$api = Freemius::Product(FS_API__PRODUCT_ID, FS_API__PRODUCT_PUBLIC_KEY, FS_API__PRODUCT_SECRET_KEY);
 
 // Deploy new version.
 $tag = $api->Api(

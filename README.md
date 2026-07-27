@@ -1,6 +1,17 @@
 # Freemius PHP SDK
 This SDK is a wrapper for accessing the API. It handles the endpoint's path and authorization signature generation.
 
+Requests from `Freemius` use an internal Guzzle client with explicit timeout,
+redirect, TLS, error-response, and multipart options. The legacy cURL
+implementation is available as `Freemius\SDK\Legacy\Freemius` for
+compatibility comparisons, and both implementations use Composer's CA bundle
+for HTTPS certificate verification. Existing integrations
+that customized the public `$CURL_OPTS` property or passed a cURL handle to
+`MakeRequest()` must migrate to the Guzzle request configuration; the cURL
+handle argument is no longer supported.
+The SDK keeps the cURL extension requirement because Guzzle 6 uses its cURL
+handler by default.
+
 Install the SDK with Composer and include Composer's autoloader:
 
 ```php
@@ -15,12 +26,12 @@ If you need to access multiple products, use the `developer` scope. To get your 
 
 ```php
   define( 'FS_API__SCOPE', 'developer' );
-  define( 'FS_API__ENTITY_ID', 1234 );
-  define( 'FS_API__PUBLIC_KEY', 'pk_YOUR_PUBLIC_KEY' );
-  define( 'FS_API__SECRET_KEY', 'sk_YOUR_SECRET_KEY' );
+  define( 'FS_API__PRODUCT_ID', 1234 );
+  define( 'FS_API__PRODUCT_PUBLIC_KEY', 'pk_YOUR_PUBLIC_KEY' );
+  define( 'FS_API__PRODUCT_SECRET_KEY', 'sk_YOUR_SECRET_KEY' );
   
   // Init SDK.
-  $api = new Freemius\SDK\Freemius(FS_API__SCOPE, FS_API__ENTITY_ID, FS_API__PUBLIC_KEY, FS_API__SECRET_KEY);
+  $api = new Freemius\SDK\Freemius(FS_API__SCOPE, FS_API__PRODUCT_ID, FS_API__PRODUCT_PUBLIC_KEY, FS_API__PRODUCT_SECRET_KEY);
   
   // Get all products.
   $result = $api->Api('/plugins.json');
