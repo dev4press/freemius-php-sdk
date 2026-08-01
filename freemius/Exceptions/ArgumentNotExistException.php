@@ -1,2 +1,8 @@
 <?php
-    class Freemius_ArgumentNotExistException extends Freemius_InvalidArgumentException { }
+
+namespace Freemius\SDK\Exception;
+
+/**
+ * Thrown when a required API argument does not exist.
+ */
+class ArgumentNotExistException extends InvalidArgumentException { }

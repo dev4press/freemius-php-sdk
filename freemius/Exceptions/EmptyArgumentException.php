@@ -1,2 +1,8 @@
 <?php
-    class Freemius_EmptyArgumentException extends Freemius_InvalidArgumentException { }
+
+namespace Freemius\SDK\Exception;
+
+/**
+ * Thrown when an API argument is empty.
+ */
+class EmptyArgumentException extends InvalidArgumentException { }

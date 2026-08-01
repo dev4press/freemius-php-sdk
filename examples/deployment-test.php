@@ -2,6 +2,8 @@
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+use Freemius\SDK\Freemius;
+
 $env = array();
 $env_file = __DIR__ . '/../.env';
 
@@ -19,16 +21,12 @@ $get_environment_value = static function ($name) use ($env) {
 };
 
 $required_values = array(
-    'FS_API__DEVELOPER_ID',
-    'FS_API__DEVELOPER_PUBLIC_KEY',
-    'FS_API__DEVELOPER_SECRET_KEY',
-    'FS_API__STORE_ID',
-    'FS_API__STORE_PUBLIC_KEY',
-    'FS_API__STORE_SECRET_KEY',
     'FS_API__PRODUCT_ID',
     'FS_API__PRODUCT_PUBLIC_KEY',
     'FS_API__PRODUCT_SECRET_KEY',
-    'FS_TEST__VALID_LICENSE_KEY',
+    'FS_DEPLOYMENT__PLUGIN_ID',
+    'FS_DEPLOYMENT__PLUGIN_ZIP',
+    'FS_DEPLOYMENT__DOWNLOAD_PATH',
 );
 
 $missing_values = array();
@@ -40,7 +38,7 @@ foreach ($required_values as $name) {
 
 if (!empty($missing_values)) {
     throw new RuntimeException(
-        'Missing test credentials: ' . implode(', ', $missing_values) .
+        'Missing deployment configuration: ' . implode(', ', $missing_values) .
         '. Copy .env.example to .env and fill in real values, or provide these environment variables.'
     );
 }
@@ -50,13 +48,28 @@ if (null !== $api_address && '' !== $api_address) {
     define('FS_API__ADDRESS', $api_address);
 }
 
-define('FS_API__DEVELOPER_ID', (int)$get_environment_value('FS_API__DEVELOPER_ID'));
-define('FS_API__DEVELOPER_PUBLIC_KEY', $get_environment_value('FS_API__DEVELOPER_PUBLIC_KEY'));
-define('FS_API__DEVELOPER_SECRET_KEY', $get_environment_value('FS_API__DEVELOPER_SECRET_KEY'));
-define('FS_API__STORE_ID', (int)$get_environment_value('FS_API__STORE_ID'));
-define('FS_API__STORE_PUBLIC_KEY', $get_environment_value('FS_API__STORE_PUBLIC_KEY'));
-define('FS_API__STORE_SECRET_KEY', $get_environment_value('FS_API__STORE_SECRET_KEY'));
 define('FS_API__PRODUCT_ID', (int)$get_environment_value('FS_API__PRODUCT_ID'));
 define('FS_API__PRODUCT_PUBLIC_KEY', $get_environment_value('FS_API__PRODUCT_PUBLIC_KEY'));
 define('FS_API__PRODUCT_SECRET_KEY', $get_environment_value('FS_API__PRODUCT_SECRET_KEY'));
-define('FS_TEST__VALID_LICENSE_KEY', $get_environment_value('FS_TEST__VALID_LICENSE_KEY'));
+
+// Init SDK.
+$api = Freemius::Product(FS_API__PRODUCT_ID, FS_API__PRODUCT_PUBLIC_KEY, FS_API__PRODUCT_SECRET_KEY);
+
+// Deploy new version.
+$tag = $api->Api(
+    'plugins/' . $get_environment_value('FS_DEPLOYMENT__PLUGIN_ID') . '/tags.json',
+    'POST',
+    array('add_contributor' => true),
+    array('file' => $get_environment_value('FS_DEPLOYMENT__PLUGIN_ZIP'))
+);
+
+// Generate secure download URLs.
+$free_version_download_url = $api->GetSignedUrl("/plugins/{$tag->plugin_id}/tags/{$tag->id}.zip?is_premium=false");
+$paid_version_download_url = $api->GetSignedUrl("/plugins/{$tag->plugin_id}/tags/{$tag->id}.zip?is_premium=true");
+
+// Download the paid version.
+if (file_put_contents($get_environment_value('FS_DEPLOYMENT__DOWNLOAD_PATH'), file_get_contents($paid_version_download_url))) {
+    // Successfully downloaded and stored.
+}
+
+print_r($tag);
