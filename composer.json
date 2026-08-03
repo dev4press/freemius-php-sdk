@@ -12,8 +12,8 @@
   "require": {
     "php": ">=7.4",
     "ext-json": "*",
-    "guzzlehttp/guzzle": "^6.0",
     "ext-curl": "*",
+    "guzzlehttp/guzzle": "^6.0",
     "composer/ca-bundle": "^1.5"
   },
   "require-dev": {
@@ -21,8 +21,7 @@
   },
   "autoload": {
     "psr-4": {
-      "Freemius\\SDK\\": "freemius/",
-      "Freemius\\SDK\\Exception\\": "freemius/Exceptions/"
+      "Freemius\\SDK\\": "freemius/"
     }
   }
 }

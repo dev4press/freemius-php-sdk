@@ -1,6 +1,6 @@
 <?php
 
-namespace Freemius\SDK\Exception;
+namespace Freemius\SDK\Exceptions;
 
 /**
  * Thrown when a required API argument does not exist.

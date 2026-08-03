@@ -3,8 +3,8 @@
 namespace Freemius\SDK\Legacy;
 
 use Composer\CaBundle\CaBundle;
-use Freemius\SDK\Exception\Exception as FreemiusException;
-use Freemius\SDK\Exception\UnknownFileTypeException;
+use Freemius\SDK\Exceptions\Exception as FreemiusException;
+use Freemius\SDK\Exceptions\UnknownFileTypeException;
 
 /**
  * Copyright 2014 Freemius, Inc.

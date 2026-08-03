@@ -1,6 +1,8 @@
 # Items to ignore when downloading a zip
 .gitattributes export-ignore
+.gitignore export-ignore
 /.junie/ export-ignore
 /examples/ export-ignore
 /tests/ export-ignore
+/freemius/legacy/ export-ignore
 phpunit.xml export-ignore

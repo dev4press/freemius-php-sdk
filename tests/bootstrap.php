@@ -45,11 +45,6 @@ if (!empty($missing_values)) {
     );
 }
 
-$api_address = $get_environment_value('FS_API__ADDRESS');
-if (null !== $api_address && '' !== $api_address) {
-    define('FS_API__ADDRESS', $api_address);
-}
-
 define('FS_API__DEVELOPER_ID', (int)$get_environment_value('FS_API__DEVELOPER_ID'));
 define('FS_API__DEVELOPER_PUBLIC_KEY', $get_environment_value('FS_API__DEVELOPER_PUBLIC_KEY'));
 define('FS_API__DEVELOPER_SECRET_KEY', $get_environment_value('FS_API__DEVELOPER_SECRET_KEY'));

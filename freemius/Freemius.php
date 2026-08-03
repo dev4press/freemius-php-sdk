@@ -3,9 +3,9 @@
 namespace Freemius\SDK;
 
 use Composer\CaBundle\CaBundle;
-use Freemius\SDK\Exception\EmptyArgumentException;
-use Freemius\SDK\Exception\Exception as FreemiusException;
-use Freemius\SDK\Exception\UnknownFileTypeException;
+use Exceptions\EmptyArgumentException;
+use Exceptions\UnknownFileTypeException;
+use Exceptions\Exception as FreemiusException;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\ConnectException;
@@ -29,28 +29,13 @@ use Psr\Http\Message\StreamInterface;
  * under the License.
  */
 
-if (!defined('FS_API__VERSION')) {
-    define('FS_API__VERSION', '1');
-}
-
-if (!function_exists('json_decode'))
-    throw new \Exception('Freemius needs the JSON PHP extension.');
-
-if (!defined('FS_SDK__USER_AGENT'))
-    define('FS_SDK__USER_AGENT', 'fs-php-' . Freemius::VERSION);
-
-if (!defined('FS_API__PROTOCOL'))
-    define('FS_API__PROTOCOL', 'https');
-
-if (!defined('FS_API__ADDRESS'))
-    define('FS_API__ADDRESS', FS_API__PROTOCOL . '://api.freemius.com');
-if (!defined('FS_API__SANDBOX_ADDRESS'))
-    define('FS_API__SANDBOX_ADDRESS', FS_API__PROTOCOL . '://sandbox-api.freemius.com');
-
 class Freemius
 {
     private static $INSTANCES = array();
     const VERSION = '2.0.0';
+    const API_VERSION = '1';
+    const API_ADDRESS = 'https://api.freemius.com';
+    const API_SANDBOX_ADDRESS = 'https://sandbox-api.freemius.com';
     const FORMAT = 'json';
     const SCOPE_DEVELOPER = 'developer';
     const SCOPE_STORE = 'store';
@@ -86,7 +71,7 @@ class Freemius
         'allow_redirects' => false,
         'expect' => false,
         'headers' => array(
-            'User-Agent' => FS_SDK__USER_AGENT,
+            'User-Agent' => 'fs-php-' . self::VERSION,
         ),
     );
 
@@ -240,7 +225,7 @@ class Freemius
                 ));
         }
 
-        return '/v' . FS_API__VERSION . $base .
+        return '/v' . self::API_VERSION . $base .
             (!empty($pPath) ? '/' : '') . $pPath .
             ((false === strpos($pPath, '.')) ? '.' . self::FORMAT : '') . $query;
     }
@@ -286,7 +271,7 @@ class Freemius
      */
     public function Test(): bool
     {
-        $pong = $this->ApiRequest('/v' . FS_API__VERSION . '/ping.json');
+        $pong = $this->ApiRequest('/v' . self::API_VERSION . '/ping.json');
 
         return (is_object($pong) && isset($pong->api) && 'pong' === $pong->api);
     }
@@ -300,7 +285,7 @@ class Freemius
     public function FindClockDiff(): int
     {
         $time = time();
-        $pong = $this->ApiRequest('/v' . FS_API__VERSION . '/ping.json');
+        $pong = $this->ApiRequest('/v' . self::API_VERSION . '/ping.json');
 
         return ($time - strtotime($pong->timestamp));
     }
@@ -376,7 +361,7 @@ class Freemius
      */
     public function GetUrl(string $pCanonizedPath = ''): string
     {
-        return ($this->_sandbox ? FS_API__SANDBOX_ADDRESS : FS_API__ADDRESS) . $pCanonizedPath;
+        return ($this->_sandbox ? self::API_SANDBOX_ADDRESS : self::API_ADDRESS) . $pCanonizedPath;
     }
 
     /**
