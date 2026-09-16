@@ -10,11 +10,11 @@
   "homepage": "https://freemius.com",
   "license": "GPL-2.0-or-later",
   "require": {
+    "guzzlehttp/guzzle": "^7.0 || ^8.0",
+    "composer/ca-bundle": "^1.5",
     "php": ">=7.4",
     "ext-json": "*",
-    "ext-curl": "*",
-    "guzzlehttp/guzzle": "^6.0",
-    "composer/ca-bundle": "^1.5"
+    "ext-curl": "*"
   },
   "require-dev": {
     "phpunit/phpunit": "^9.6"

@@ -3,9 +3,9 @@
 namespace Freemius\SDK;
 
 use Composer\CaBundle\CaBundle;
-use Exceptions\EmptyArgumentException;
-use Exceptions\UnknownFileTypeException;
-use Exceptions\Exception as FreemiusException;
+use Freemius\SDK\Exceptions\EmptyArgumentException;
+use Freemius\SDK\Exceptions\Exception;
+use Freemius\SDK\Exceptions\UnknownFileTypeException;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\ConnectException;
@@ -28,7 +28,6 @@ use Psr\Http\Message\StreamInterface;
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-
 class Freemius
 {
     private static $INSTANCES = array();
@@ -178,7 +177,7 @@ class Freemius
      * @param string $pPath Relative API path.
      *
      * @return string Canonical API path.
-     * @throws FreemiusException When the configured scope is not supported.
+     * @throws Exception When the configured scope is not supported.
      */
     public function CanonizePath(string $pPath): string
     {
@@ -217,7 +216,7 @@ class Freemius
                 $base = '/installs/' . $this->_id;
                 break;
             default:
-                throw new FreemiusException(array(
+                throw new Exception(array(
                     'error' => array(
                         'message' => 'Scope not implemented.',
                         'type' => 'InvalidScope',
@@ -246,7 +245,7 @@ class Freemius
 
         try {
             $result = $this->MakeRequest($pPath, $pMethod, $pParams, $pFileParams);
-        } catch (FreemiusException $e) {
+        } catch (Exception $e) {
             // Map to error object.
             $result = json_encode($e->GetResult());
         } catch (\Exception $e) {
@@ -365,7 +364,7 @@ class Freemius
     }
 
     /**
-     * Set clock diff for all API calls.
+     * Set the clock diff for all API calls.
      *
      * @param int $pSeconds Clock difference in seconds.
      * @since 1.0.3
@@ -378,7 +377,7 @@ class Freemius
     /**
      * Sign request with the following HTTP headers:
      *      Content-MD5: MD5(HTTP Request body)
-     *      Date: Current date (i.e Sat, 14 Feb 2015 20:24:46 +0000)
+     *      Date: Current date (i.e., Sat, 14 Feb 2015 20:24:46 +0000)
      *      Authorization: FS {scope_entity_id}:{scope_entity_public_key}:base64encode(sha256(string_to_sign, {scope_entity_secret_key}))
      *
      * @param string $pResourceUrl Resource URL to sign.
@@ -495,7 +494,7 @@ class Freemius
      * @param array $pFileParams File parameters.
      *
      * @return string The response body.
-     * @throws FreemiusException
+     * @throws Exception
      */
     public function MakeRequest(
         string $pCanonizedPath,
@@ -587,7 +586,7 @@ class Freemius
         if (isset($response))
             return (string)$response->getBody();
 
-        throw new FreemiusException(array(
+        throw new Exception(array(
             'error' => array(
                 'code' => $e->getCode(),
                 'message' => $e->getMessage(),
@@ -645,7 +644,7 @@ class Freemius
     }
 
     /**
-     * Get the lazily-created internal HTTP client.
+     * Get the lazily created internal HTTP client.
      *
      * @return ClientInterface
      */
